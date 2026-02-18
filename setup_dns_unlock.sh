@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.0"
+VERSION="1.5.1"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -123,7 +123,6 @@ bind-interfaces
 
 # 强制使用IPv4
 all-servers
-# 禁用IPv6（使用更兼容的方式）
 no-aaaa
 
 # 缓存设置
