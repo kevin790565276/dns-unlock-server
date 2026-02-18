@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.1"
+VERSION="1.5.2"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -121,7 +121,7 @@ listen-address=0.0.0.0
 port=53
 bind-interfaces
 
-# 强制使用IPv4
+# 基本选项
 all-servers
 
 # 缓存设置
@@ -140,132 +140,50 @@ conf-dir=/etc/dnsmasq.d
 address=/.openai.com/
 address=/.api.openai.com/
 address=/.chat.openai.com/
-address=/.auth0.openai.com/
-address=/.cdn.openai.com/
 
 # Anthropic 相关域名
 address=/.anthropic.com/
-address=/.api.anthropic.com/
 address=/.claude.ai/
-address=/.api.claude.ai/
 
 # Google AI 相关域名
 address=/.googleapis.com/
-address=/.generativelanguage.googleapis.com/
 address=/.gemini.google.com/
-address=/.ai.google.com/
 
 # Microsoft AI 相关域名
 address=/.microsoft.com/
-address=/.azure.microsoft.com/
-address=/.openai.azure.com/
-address=/.ai.azure.com/
 
 # Meta AI 相关域名
 address=/.meta.com/
-address=/.meta.ai/
-address=/.facebook.com/
-address=/.instagram.com/
 
 # 其他AI服务相关域名
 address=/.cohere.com/
 address=/.perplexity.ai/
 address=/.mistral.ai/
-address=/.ai21.com/
 address=/.huggingface.co/
-address=/.runwayml.com/
-address=/.stability.ai/
-address=/.deepmind.com/
-address=/.replicate.com/
-address=/.fal.ai/
-address=/.modal.com/
-address=/.together.ai/
-address=/.openrouter.ai/
 
 # 流媒体服务解锁规则 - 使用域名关键词匹配
 # Netflix 相关域名
 address=/.netflix.com/
-address=/.nflximg.net/
-address=/.nflxvideo.net/
-address=/.nflxso.net/
 
 # Disney+ 相关域名
 address=/.disneyplus.com/
-address=/.disney.com/
-address=/.dssott.com/
 
 # HBO Max 相关域名
 address=/.hbomax.com/
-address=/.hbo.com/
-address=/.warnermedia.com/
 
 # Amazon Prime Video 相关域名
 address=/.primevideo.com/
-address=/.amazon.com/
-address=/.amazonvideo.com/
 
 # YouTube Premium 相关域名
 address=/.youtube.com/
-address=/.youtu.be/
-address=/.googlevideo.com/
 
 # Spotify 相关域名
 address=/.spotify.com/
-address=/.spoti.fi/
-address=/.spotifycdn.com/
-
-# Apple TV+ 相关域名
-address=/.appletv.com/
-address=/.apple.com/
-address=/.itunes.apple.com/
-
-# Paramount+ 相关域名
-address=/.paramountplus.com/
-address=/.cbs.com/
-address=/.paramount.com/
-
-# Peacock 相关域名
-address=/.peacocktv.com/
-address=/.nbc.com/
-address=/.universalstudios.com/
-
-# Crunchyroll 相关域名
-address=/.crunchyroll.com/
-address=/.funimation.com/
-address=/.vrv.co/
-
-# Hulu 相关域名
-address=/.hulu.com/
-address=/.disney.com/
 
 # 亚洲流媒体服务相关域名
 address=/.iqiyi.com/
 address=/.v.qq.com/
-address=/.qq.com/
-address=/.youku.com/
 address=/.bilibili.com/
-address=/.acfun.cn/
-address=/.tudou.com/
-address=/.mgtv.com/
-
-# 音乐流媒体服务相关域名
-address=/.tidal.com/
-address=/.deezer.com/
-address=/.qqmusic.com/
-address=/.kugou.com/
-address=/.kuwo.cn/
-
-# 体育流媒体服务相关域名
-address=/.espn.com/
-address=/.skysports.com/
-address=/.nbcsports.com/
-address=/.cbssports.com/
-
-# 新闻流媒体服务相关域名
-address=/.cnn.com/
-address=/.bbc.com/
-address=/.foxnews.com/
-address=/.msnbc.com/
 EOF
 
     # 创建默认白名单配置（默认允许所有IP，用户可以后续添加限制）
