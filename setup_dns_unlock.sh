@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.2"
+VERSION="1.5.3"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -264,7 +264,7 @@ systemctl enable dnsmasq
     echo -e "${YELLOW}5. 如需配置上游DNS，请使用上游DNS管理功能${NC}"
     echo ""
 
-    read -p -e "${GREEN}按Enter键返回主菜单...${NC}"
+    read -p "${GREEN}按Enter键返回主菜单...${NC}"
 }
 
 # 管理白名单
@@ -356,7 +356,7 @@ view_whitelist() {
         echo -e "${RED}白名单配置文件不存在${NC}"
     fi
     echo ""
-    read -p -e "${GREEN}按Enter键返回...${NC}"
+    read -p "${GREEN}按Enter键返回...${NC}"
 }
 
 # 清空白名单
@@ -366,7 +366,7 @@ clear_whitelist() {
     echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${RED}警告：此操作将清空所有白名单规则！${NC}"
-    read -p -e "${GREEN}确定要清空白名单吗？(y/N): ${NC}" confirm
+    read -p "${GREEN}确定要清空白名单吗？(y/N): ${NC}" confirm
     if [[ $confirm == [Yy]* ]]; then
         # 重建白名单文件，保留注释
         cat > "$WHITELIST_FILE" << EOF
@@ -508,7 +508,7 @@ view_config() {
     echo -e "${GREEN}服务状态:${NC}"
     systemctl status dnsmasq --no-pager
     echo ""
-    read -p -e "${GREEN}按Enter键返回主菜单...${NC}"
+    read -p "${GREEN}按Enter键返回主菜单...${NC}"
 }
 
 # 还原原始配置
@@ -518,7 +518,7 @@ restore_config() {
     echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${RED}警告：此操作将还原到原始配置，删除所有解锁规则！${NC}"
-    read -p -e "${GREEN}确定要还原原始配置吗？(y/N): ${NC}" confirm
+    read -p "${GREEN}确定要还原原始配置吗？(y/N): ${NC}" confirm
     if [[ $confirm == [Yy]* ]]; then
         if [ -f "$DNSMASQ_CONF_BAK" ]; then
             # 停止服务
