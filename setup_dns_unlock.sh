@@ -108,6 +108,10 @@ listen-address=0.0.0.0
 port=53
 bind-interfaces
 
+# 强制使用IPv4
+all-servers
+filter-AAAA
+
 # 缓存设置
 cache-size=10000
 
@@ -299,20 +303,23 @@ systemctl enable dnsmasq
     echo -e "${YELLOW}正在检查DNSmasq服务状态...${NC}"
     systemctl status dnsmasq --no-pager
 
+    # 获取IPv4地址
+    local ipv4_address=$(curl -s -4 ifconfig.me 2>/dev/null || curl -s ifconfig.me)
+    
     # 显示配置信息
     echo -e "${BLUE}====================================${NC}"
     echo -e "${GREEN}DNS解锁服务器配置完成！${NC}"
     echo -e "${BLUE}====================================${NC}"
-    echo -e "${YELLOW}DNS服务器IP: $(curl -s ifconfig.me)${NC}"
+    echo -e "${YELLOW}DNS服务器IPv4: $ipv4_address${NC}"
     echo -e "${YELLOW}DNS端口: 53${NC}"
     echo -e "${YELLOW}白名单配置文件: $WHITELIST_FILE${NC}"
     echo ""
     echo -e "${GREEN}请在中转机的分流配置中使用以下DNS服务器:${NC}"
-    echo -e "${YELLOW}$(curl -s ifconfig.me)${NC}"
+    echo -e "${YELLOW}$ipv4_address${NC}"
     echo ""
     echo -e "${GREEN}配置示例（适用于大多数分流工具）:${NC}"
     echo -e "${YELLOW}- 类型: DNS${NC}"
-    echo -e "${YELLOW}- 服务器地址: $(curl -s ifconfig.me)${NC}"
+    echo -e "${YELLOW}- 服务器地址: $ipv4_address${NC}"
     echo -e "${YELLOW}- 端口: 53${NC}"
     echo -e "${YELLOW}- 适用范围: AI服务和流媒体域名${NC}"
     echo ""
@@ -550,7 +557,11 @@ view_config() {
     echo -e "${BLUE}====================================${NC}"
     echo -e "${GREEN}当前配置${NC}"
     echo -e "${BLUE}====================================${NC}"
-    echo -e "${YELLOW}DNS服务器IP: $(curl -s ifconfig.me)${NC}"
+    
+    # 获取IPv4地址
+    local ipv4_address=$(curl -s -4 ifconfig.me 2>/dev/null || curl -s ifconfig.me)
+    
+    echo -e "${YELLOW}DNS服务器IPv4: $ipv4_address${NC}"
     echo -e "${YELLOW}DNS端口: 53${NC}"
     echo -e "${YELLOW}DNSmasq配置文件: $DNSMASQ_CONF${NC}"
     echo -e "${YELLOW}白名单配置文件: $WHITELIST_FILE${NC}"
