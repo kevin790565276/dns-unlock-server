@@ -37,7 +37,7 @@
 无需克隆仓库，直接使用以下命令运行：
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/yourusername/dns-unlock-server/main/setup_dns_unlock.sh)
+bash <(curl -s https://raw.githubusercontent.com/kevin790565276/dns-unlock-server/main/setup_dns_unlock.sh)
 ```
 
 ### 2. 配置中转机
