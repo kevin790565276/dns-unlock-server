@@ -239,8 +239,31 @@ EOF
 
     # 配置防火墙
     echo -e "${YELLOW}正在配置防火墙...${NC}"
-    ufw allow 53/tcp
-    ufw allow 53/udp
+    
+    # 检查是否安装了ufw
+    if command -v ufw &> /dev/null; then
+        echo -e "${GREEN}使用ufw配置防火墙...${NC}"
+        ufw allow 53/tcp
+        ufw allow 53/udp
+    # 检查是否安装了firewalld
+    elif command -v firewall-cmd &> /dev/null; then
+        echo -e "${GREEN}使用firewalld配置防火墙...${NC}"
+        firewall-cmd --permanent --add-port=53/tcp
+        firewall-cmd --permanent --add-port=53/udp
+        firewall-cmd --reload
+    # 检查是否安装了iptables
+    elif command -v iptables &> /dev/null; then
+        echo -e "${GREEN}使用iptables配置防火墙...${NC}"
+        iptables -A INPUT -p tcp --dport 53 -j ACCEPT
+        iptables -A INPUT -p udp --dport 53 -j ACCEPT
+        # 保存iptables规则（不同系统保存方式不同）
+        if command -v iptables-save &> /dev/null; then
+            iptables-save > /etc/iptables/rules.v4 2>/dev/null || iptables-save > /etc/sysconfig/iptables 2>/dev/null
+        fi
+    else
+        echo -e "${YELLOW}未检测到可用的防火墙工具（ufw/firewalld/iptables）${NC}"
+        echo -e "${YELLOW}请手动开放53端口以允许DNS服务访问${NC}"
+    fi
 
     # 重启DNSmasq服务
     echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
