@@ -42,7 +42,7 @@ bash <(curl -s https://raw.githubusercontent.com/kevin790565276/dns-unlock-serve
 
 ### 2. 配置中转机
 
-脚本运行完成后，会显示落地机的公网IP地址。在中转机的分流配置中，将DNS服务器设置为该IP地址，并确保AI服务的流量通过此DNS解析。
+脚本运行完成后，会显示落地机的公网IP地址。在中转机的分流配置中，将DNS服务器设置为该IP地址，流媒体AI服务的流量通过此DNS解析。
 
 #### 配置示例（适用于大多数分流工具）：
 - **类型**：DNS
