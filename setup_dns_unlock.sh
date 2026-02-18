@@ -123,7 +123,8 @@ bind-interfaces
 
 # 强制使用IPv4
 all-servers
-filter-AAAA
+# 禁用IPv6（使用更兼容的方式）
+no-aaaa
 
 # 缓存设置
 cache-size=10000
