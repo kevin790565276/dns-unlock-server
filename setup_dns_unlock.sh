@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.3"
+VERSION="1.5.4"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -71,7 +71,7 @@ display_upstream_dns_menu() {
     # 显示当前使用的上游DNS
     echo -e "${CYAN}║${NC} ${YELLOW}当前上游DNS配置:${NC}                     ${CYAN}║${NC}"
     if grep -q "^server=" "$DNSMASQ_CONF"; then
-        local dns_servers=$(grep "^server=" "$DNSMASQ_CONF" | awk -F'=' '{print $2}')
+        local dns_servers=$(grep "^server=" "$DNSMASQ_CONF" | grep -v "\.domain\.com" | awk -F'=' '{print $2}')
         local i=1
         while IFS= read -r server; do
             echo -e "${CYAN}║${NC}   ${GREEN}$i. $server${NC}                     ${CYAN}║${NC}"
@@ -135,55 +135,139 @@ cache-size=10000
 # 包含白名单配置
 conf-dir=/etc/dnsmasq.d
 
-# AI服务解锁规则 - 使用域名关键词匹配
+# AI服务解锁规则 - 使用server选项转发到上游DNS
 # OpenAI 相关域名
-address=/.openai.com/
-address=/.api.openai.com/
-address=/.chat.openai.com/
+server=/.openai.com/
+server=/.api.openai.com/
+server=/.chat.openai.com/
+server=/.auth0.openai.com/
+server=/.cdn.openai.com/
 
 # Anthropic 相关域名
-address=/.anthropic.com/
-address=/.claude.ai/
+server=/.anthropic.com/
+server=/.api.anthropic.com/
+server=/.claude.ai/
+server=/.api.claude.ai/
 
 # Google AI 相关域名
-address=/.googleapis.com/
-address=/.gemini.google.com/
+server=/.googleapis.com/
+server=/.generativelanguage.googleapis.com/
+server=/.gemini.google.com/
+server=/.ai.google.com/
 
 # Microsoft AI 相关域名
-address=/.microsoft.com/
+server=/.microsoft.com/
+server=/.azure.microsoft.com/
+server=/.openai.azure.com/
+server=/.ai.azure.com/
 
 # Meta AI 相关域名
-address=/.meta.com/
+server=/.meta.com/
+server=/.meta.ai/
+server=/.facebook.com/
+server=/.instagram.com/
 
 # 其他AI服务相关域名
-address=/.cohere.com/
-address=/.perplexity.ai/
-address=/.mistral.ai/
-address=/.huggingface.co/
+server=/.cohere.com/
+server=/.perplexity.ai/
+server=/.mistral.ai/
+server=/.ai21.com/
+server=/.huggingface.co/
+server=/.runwayml.com/
+server=/.stability.ai/
+server=/.deepmind.com/
+server=/.replicate.com/
+server=/.fal.ai/
+server=/.modal.com/
+server=/.together.ai/
+server=/.openrouter.ai/
 
-# 流媒体服务解锁规则 - 使用域名关键词匹配
+# 流媒体服务解锁规则 - 使用server选项转发到上游DNS
 # Netflix 相关域名
-address=/.netflix.com/
+server=/.netflix.com/
+server=/.nflximg.net/
+server=/.nflxvideo.net/
+server=/.nflxso.net/
 
 # Disney+ 相关域名
-address=/.disneyplus.com/
+server=/.disneyplus.com/
+server=/.disney.com/
+server=/.dssott.com/
+server=/.bamgrid.com/
+server=/.disneystreaming.com/
 
 # HBO Max 相关域名
-address=/.hbomax.com/
+server=/.hbomax.com/
+server=/.hbo.com/
+server=/.warnermedia.com/
 
 # Amazon Prime Video 相关域名
-address=/.primevideo.com/
+server=/.primevideo.com/
+server=/.amazon.com/
+server=/.amazonvideo.com/
 
 # YouTube Premium 相关域名
-address=/.youtube.com/
+server=/.youtube.com/
+server=/.youtu.be/
+server=/.googlevideo.com/
 
 # Spotify 相关域名
-address=/.spotify.com/
+server=/.spotify.com/
+server=/.spoti.fi/
+server=/.spotifycdn.com/
+
+# Apple TV+ 相关域名
+server=/.appletv.com/
+server=/.apple.com/
+server=/.itunes.apple.com/
+
+# Paramount+ 相关域名
+server=/.paramountplus.com/
+server=/.cbs.com/
+server=/.paramount.com/
+
+# Peacock 相关域名
+server=/.peacocktv.com/
+server=/.nbc.com/
+server=/.universalstudios.com/
+
+# Crunchyroll 相关域名
+server=/.crunchyroll.com/
+server=/.funimation.com/
+server=/.vrv.co/
+
+# Hulu 相关域名
+server=/.hulu.com/
+server=/.disney.com/
 
 # 亚洲流媒体服务相关域名
-address=/.iqiyi.com/
-address=/.v.qq.com/
-address=/.bilibili.com/
+server=/.iqiyi.com/
+server=/.v.qq.com/
+server=/.qq.com/
+server=/.youku.com/
+server=/.bilibili.com/
+server=/.acfun.cn/
+server=/.tudou.com/
+server=/.mgtv.com/
+
+# 音乐流媒体服务相关域名
+server=/.tidal.com/
+server=/.deezer.com/
+server=/.qqmusic.com/
+server=/.kugou.com/
+server=/.kuwo.cn/
+
+# 体育流媒体服务相关域名
+server=/.espn.com/
+server=/.skysports.com/
+server=/.nbcsports.com/
+server=/.cbssports.com/
+
+# 新闻流媒体服务相关域名
+server=/.cnn.com/
+server=/.bbc.com/
+server=/.foxnews.com/
+server=/.msnbc.com/
 EOF
 
     # 创建默认白名单配置（默认允许所有IP，用户可以后续添加限制）
@@ -442,8 +526,8 @@ change_upstream_dns() {
         return
     fi
     
-    # 移除现有的server配置
-    sed -i '/^server=/d' "$DNSMASQ_CONF"
+    # 移除现有的server配置（保留域名转发规则）
+    sed -i '/^server=/ { /\.domain\.com/!d }' "$DNSMASQ_CONF"
     
     # 添加新的server配置
     echo "server=$primary_dns" >> "$DNSMASQ_CONF"
@@ -467,11 +551,11 @@ restore_upstream_dns() {
     echo ""
     
     if [ -f "${DNSMASQ_CONF}.dns.bak" ]; then
-        # 移除现有的server配置
-        sed -i '/^server=/d' "$DNSMASQ_CONF"
+        # 移除现有的server配置（保留域名转发规则）
+        sed -i '/^server=/ { /\.domain\.com/!d }' "$DNSMASQ_CONF"
         
         # 从备份中恢复server配置
-        grep "^server=" "${DNSMASQ_CONF}.dns.bak" >> "$DNSMASQ_CONF"
+        grep "^server=" "${DNSMASQ_CONF}.dns.bak" | grep -v "\.domain\.com" >> "$DNSMASQ_CONF"
         
         # 重启服务
         echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
@@ -480,7 +564,7 @@ restore_upstream_dns() {
         echo -e "${GREEN}上游DNS已成功恢复${NC}"
         echo -e "${YELLOW}当前上游DNS配置:${NC}"
         if grep -q "^server=" "$DNSMASQ_CONF"; then
-            grep "^server=" "$DNSMASQ_CONF" | awk -F'=' '{print "  " $2}'
+            grep "^server=" "$DNSMASQ_CONF" | grep -v "\.domain\.com" | awk -F'=' '{print "  " $2}'
         else
             echo -e "  ${GREEN}使用系统默认DNS${NC}"
         fi
