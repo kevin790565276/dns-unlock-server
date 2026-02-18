@@ -80,22 +80,6 @@ address=/example.com/IP地址
 systemctl restart dnsmasq
 ```
 
-### 修改上游DNS服务器
-
-默认使用Google DNS（8.8.8.8和8.8.4.4），您可以根据需要修改为其他DNS服务器：
-
-```bash
-nano /etc/dnsmasq.conf
-```
-
-找到并修改以下行：
-
-```conf
-# 上游DNS服务器
-server=8.8.8.8
-server=8.8.4.4
-```
-
 ## 故障排查
 
 ### 服务启动失败
