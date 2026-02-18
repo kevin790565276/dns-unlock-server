@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # DNS解锁服务器一键配置脚本
-# 适用于将落地机配置为DNS服务器，用于解锁AI服务
+# 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -94,38 +94,137 @@ server=8.8.4.4
 # 包含白名单配置
 conf-dir=/etc/dnsmasq.d
 
-# AI服务解锁规则
-# OpenAI
-domain=openai.com
-address=/openai.com/104.18.32.67
-address=/api.openai.com/104.18.31.67
+# AI服务解锁规则 - 使用域名关键词匹配
+# OpenAI 相关域名
+address=/.openai.com/
+address=/.api.openai.com/
+address=/.chat.openai.com/
+address=/.auth0.openai.com/
+address=/.cdn.openai.com/
 
-# Anthropic
-domain=anthropic.com
-address=/anthropic.com/108.156.172.122
-address=/api.anthropic.com/108.156.172.122
+# Anthropic 相关域名
+address=/.anthropic.com/
+address=/.api.anthropic.com/
+address=/.claude.ai/
+address=/.api.claude.ai/
 
-# Google AI
-domain=googleapis.com
-address=/generativelanguage.googleapis.com/142.250.185.95
+# Google AI 相关域名
+address=/.googleapis.com/
+address=/.generativelanguage.googleapis.com/
+address=/.gemini.google.com/
+address=/.ai.google.com/
 
-# Microsoft AI
-domain=microsoft.com
-address=/azure.microsoft.com/20.106.105.124
+# Microsoft AI 相关域名
+address=/.microsoft.com/
+address=/.azure.microsoft.com/
+address=/.openai.azure.com/
+address=/.ai.azure.com/
 
-# Meta AI
-domain=meta.com
-address=/meta.ai/157.240.224.13
+# Meta AI 相关域名
+address=/.meta.com/
+address=/.meta.ai/
+address=/.facebook.com/
+address=/.instagram.com/
 
-# 其他AI服务
-domain=cohere.com
-address=/cohere.com/104.21.70.49
+# 其他AI服务相关域名
+address=/.cohere.com/
+address=/.perplexity.ai/
+address=/.mistral.ai/
+address=/.ai21.com/
+address=/.huggingface.co/
+address=/.runwayml.com/
+address=/.stability.ai/
+address=/.deepmind.com/
+address=/.replicate.com/
+address=/.fal.ai/
+address=/.modal.com/
+address=/.together.ai/
+address=/.openrouter.ai/
 
-domain=perplexity.ai
-address=/perplexity.ai/104.26.14.106
+# 流媒体服务解锁规则 - 使用域名关键词匹配
+# Netflix 相关域名
+address=/.netflix.com/
+address=/.nflximg.net/
+address=/.nflxvideo.net/
+address=/.nflxso.net/
 
-domain=claude.ai
-address=/claude.ai/108.156.172.122
+# Disney+ 相关域名
+address=/.disneyplus.com/
+address=/.disney.com/
+address=/.dssott.com/
+
+# HBO Max 相关域名
+address=/.hbomax.com/
+address=/.hbo.com/
+address=/.warnermedia.com/
+
+# Amazon Prime Video 相关域名
+address=/.primevideo.com/
+address=/.amazon.com/
+address=/.amazonvideo.com/
+
+# YouTube Premium 相关域名
+address=/.youtube.com/
+address=/.youtu.be/
+address=/.googlevideo.com/
+
+# Spotify 相关域名
+address=/.spotify.com/
+address=/.spoti.fi/
+address=/.spotifycdn.com/
+
+# Apple TV+ 相关域名
+address=/.appletv.com/
+address=/.apple.com/
+address=/.itunes.apple.com/
+
+# Paramount+ 相关域名
+address=/.paramountplus.com/
+address=/.cbs.com/
+address=/.paramount.com/
+
+# Peacock 相关域名
+address=/.peacocktv.com/
+address=/.nbc.com/
+address=/.universalstudios.com/
+
+# Crunchyroll 相关域名
+address=/.crunchyroll.com/
+address=/.funimation.com/
+address=/.vrv.co/
+
+# Hulu 相关域名
+address=/.hulu.com/
+address=/.disney.com/
+
+# 亚洲流媒体服务相关域名
+address=/.iqiyi.com/
+address=/.v.qq.com/
+address=/.qq.com/
+address=/.youku.com/
+address=/.bilibili.com/
+address=/.acfun.cn/
+address=/.tudou.com/
+address=/.mgtv.com/
+
+# 音乐流媒体服务相关域名
+address=/.tidal.com/
+address=/.deezer.com/
+address=/.qqmusic.com/
+address=/.kugou.com/
+address=/.kuwo.cn/
+
+# 体育流媒体服务相关域名
+address=/.espn.com/
+address=/.skysports.com/
+address=/.nbcsports.com/
+address=/.cbssports.com/
+
+# 新闻流媒体服务相关域名
+address=/.cnn.com/
+address=/.bbc.com/
+address=/.foxnews.com/
+address=/.msnbc.com/
 EOF
 
     # 创建默认白名单配置（默认允许所有IP，用户可以后续添加限制）
@@ -167,15 +266,14 @@ systemctl enable dnsmasq
     echo -e "${YELLOW}- 类型: DNS${NC}"
     echo -e "${YELLOW}- 服务器地址: $(curl -s ifconfig.me)${NC}"
     echo -e "${YELLOW}- 端口: 53${NC}"
-    echo -e "${YELLOW}- 适用范围: AI服务域名${NC}"
+    echo -e "${YELLOW}- 适用范围: AI服务和流媒体域名${NC}"
     echo ""
     echo -e "${BLUE}====================================${NC}"
     echo -e "${YELLOW}注意事项:${NC}"
     echo -e "${YELLOW}1. 确保落地机的防火墙已开放53端口${NC}"
     echo -e "${YELLOW}2. 确保中转机可以访问落地机的53端口${NC}"
-    echo -e "${YELLOW}3. 如需添加更多AI服务，请编辑 $DNSMASQ_CONF 文件${NC}"
-    echo -e "${YELLOW}4. 如需修改DNS解析规则，请更新相应的address记录${NC}"
-    echo -e "${YELLOW}5. 如需限制访问，请使用白名单管理功能${NC}"
+    echo -e "${YELLOW}3. 如需添加更多服务，请编辑 $DNSMASQ_CONF 文件${NC}"
+    echo -e "${YELLOW}4. 如需限制访问，请使用白名单管理功能${NC}"
     echo -e "${BLUE}====================================${NC}"
 
     read -p "按Enter键返回主菜单..."
