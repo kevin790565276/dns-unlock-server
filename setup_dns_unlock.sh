@@ -31,11 +31,12 @@ display_menu() {
     echo -e "${BLUE}====================================${NC}"
     echo -e "${YELLOW}1. 安装并配置DNS解锁服务器${NC}"
     echo -e "${YELLOW}2. 管理白名单${NC}"
-    echo -e "${YELLOW}3. 查看当前配置${NC}"
-    echo -e "${YELLOW}4. 还原原始配置${NC}"
+    echo -e "${YELLOW}3. 管理上游DNS${NC}"
+    echo -e "${YELLOW}4. 查看当前配置${NC}"
+    echo -e "${YELLOW}5. 还原原始配置${NC}"
     echo -e "${YELLOW}0. 退出脚本${NC}"
     echo -e "${BLUE}====================================${NC}"
-    echo -n "请选择操作 [0-4]: "
+    echo -n "请选择操作 [0-5]: "
 }
 
 # 显示白名单管理菜单
@@ -51,6 +52,29 @@ display_whitelist_menu() {
     echo -e "${YELLOW}0. 返回主菜单${NC}"
     echo -e "${BLUE}====================================${NC}"
     echo -n "请选择操作 [0-4]: "
+}
+
+# 显示上游DNS管理菜单
+display_upstream_dns_menu() {
+    clear
+    echo -e "${BLUE}====================================${NC}"
+    echo -e "${GREEN}上游DNS管理${NC}"
+    echo -e "${BLUE}====================================${NC}"
+    
+    # 显示当前使用的上游DNS
+    echo -e "${YELLOW}当前上游DNS配置:${NC}"
+    if grep -q "^server=" "$DNSMASQ_CONF"; then
+        grep "^server=" "$DNSMASQ_CONF" | awk -F'=' '{print "  " $2}'
+    else
+        echo -e "  ${GREEN}使用系统默认DNS${NC}"
+    fi
+    echo ""
+    
+    echo -e "${YELLOW}1. 更改上游DNS（并备份当前配置）${NC}"
+    echo -e "${YELLOW}2. 恢复上游DNS${NC}"
+    echo -e "${YELLOW}0. 返回主菜单${NC}"
+    echo -e "${BLUE}====================================${NC}"
+    echo -n "请选择操作 [0-2]: "
 }
 
 # 安装并配置DNS解锁服务器
@@ -88,8 +112,9 @@ bind-interfaces
 cache-size=10000
 
 # 上游DNS服务器
-server=8.8.8.8
-server=8.8.4.4
+# 默认使用系统DNS，可通过菜单管理进行配置
+# server=8.8.8.8
+# server=8.8.4.4
 
 # 包含白名单配置
 conf-dir=/etc/dnsmasq.d
@@ -297,6 +322,7 @@ systemctl enable dnsmasq
     echo -e "${YELLOW}2. 确保中转机可以访问落地机的53端口${NC}"
     echo -e "${YELLOW}3. 如需添加更多服务，请编辑 $DNSMASQ_CONF 文件${NC}"
     echo -e "${YELLOW}4. 如需限制访问，请使用白名单管理功能${NC}"
+    echo -e "${YELLOW}5. 如需配置上游DNS，请使用上游DNS管理功能${NC}"
     echo -e "${BLUE}====================================${NC}"
 
     read -p "按Enter键返回主菜单..."
@@ -419,6 +445,106 @@ EOF
     sleep 2
 }
 
+# 管理上游DNS
+manage_upstream_dns() {
+    while true; do
+        display_upstream_dns_menu
+        read -r choice
+        case $choice in
+            1) change_upstream_dns ;;
+            2) restore_upstream_dns ;;
+            0) break ;;
+            "") break ;;
+            *) echo -e "${RED}无效选择，请重新输入${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# 更改上游DNS
+change_upstream_dns() {
+    echo -e "${BLUE}====================================${NC}"
+    echo -e "${GREEN}更改上游DNS${NC}"
+    echo -e "${BLUE}====================================${NC}"
+    
+    # 备份当前上游DNS配置
+    echo -e "${YELLOW}正在备份当前上游DNS配置...${NC}"
+    cp "$DNSMASQ_CONF" "${DNSMASQ_CONF}.dns.bak"
+    
+    # 提示用户输入新的DNS服务器
+    echo -e "${YELLOW}请输入主DNS服务器（例如：8.8.8.8）:${NC}"
+    read -r primary_dns
+    
+    echo -e "${YELLOW}请输入备用DNS服务器（例如：8.8.4.4）:${NC}"
+    read -r secondary_dns
+    
+    # 验证DNS格式
+    validate_dns() {
+        local dns=$1
+        if [[ ! $dns =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            return 1
+        fi
+        return 0
+    }
+    
+    if ! validate_dns "$primary_dns"; then
+        echo -e "${RED}主DNS服务器格式无效${NC}"
+        sleep 2
+        return
+    fi
+    
+    if ! validate_dns "$secondary_dns"; then
+        echo -e "${RED}备用DNS服务器格式无效${NC}"
+        sleep 2
+        return
+    fi
+    
+    # 移除现有的server配置
+    sed -i '/^server=/d' "$DNSMASQ_CONF"
+    
+    # 添加新的server配置
+    echo "server=$primary_dns" >> "$DNSMASQ_CONF"
+    echo "server=$secondary_dns" >> "$DNSMASQ_CONF"
+    
+    # 重启服务
+    echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
+    systemctl restart dnsmasq
+    
+    echo -e "${GREEN}上游DNS已成功更改为:${NC}"
+    echo -e "${YELLOW}主DNS: $primary_dns${NC}"
+    echo -e "${YELLOW}备用DNS: $secondary_dns${NC}"
+    sleep 2
+}
+
+# 恢复上游DNS
+restore_upstream_dns() {
+    echo -e "${BLUE}====================================${NC}"
+    echo -e "${GREEN}恢复上游DNS${NC}"
+    echo -e "${BLUE}====================================${NC}"
+    
+    if [ -f "${DNSMASQ_CONF}.dns.bak" ]; then
+        # 移除现有的server配置
+        sed -i '/^server=/d' "$DNSMASQ_CONF"
+        
+        # 从备份中恢复server配置
+        grep "^server=" "${DNSMASQ_CONF}.dns.bak" >> "$DNSMASQ_CONF"
+        
+        # 重启服务
+        echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
+        systemctl restart dnsmasq
+        
+        echo -e "${GREEN}上游DNS已成功恢复${NC}"
+        echo -e "${YELLOW}当前上游DNS配置:${NC}"
+        if grep -q "^server=" "$DNSMASQ_CONF"; then
+            grep "^server=" "$DNSMASQ_CONF" | awk -F'=' '{print "  " $2}'
+        else
+            echo -e "  ${GREEN}使用系统默认DNS${NC}"
+        fi
+    else
+        echo -e "${RED}上游DNS备份不存在${NC}"
+    fi
+    sleep 2
+}
+
 # 查看当前配置
 view_config() {
     echo -e "${BLUE}====================================${NC}"
@@ -453,6 +579,9 @@ restore_config() {
             # 删除白名单配置
             rm -f "$WHITELIST_FILE"
 
+            # 删除DNS备份
+            rm -f "${DNSMASQ_CONF}.dns.bak"
+
             # 重启服务
             systemctl restart dnsmasq
 
@@ -475,8 +604,9 @@ main() {
         case $choice in
             1) install_configure ;;
             2) manage_whitelist ;;
-            3) view_config ;;
-            4) restore_config ;;
+            3) manage_upstream_dns ;;
+            4) view_config ;;
+            5) restore_config ;;
             0) echo -e "${GREEN}感谢使用DNS解锁服务器管理工具，再见！${NC}"; exit 0 ;;
             *) echo -e "${RED}无效选择，请重新输入${NC}"; sleep 1 ;;
         esac
