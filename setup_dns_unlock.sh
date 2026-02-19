@@ -4,12 +4,17 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.5"
+VERSION="1.5.6"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
 DNSMASQ_CONF_BAK="/etc/dnsmasq.conf.bak"
 WHITELIST_FILE="/etc/dnsmasq.d/whitelist.conf"
+PORT_BACKUP_FILE="/etc/dnsmasq.d/port.conf"
+
+# 默认端口
+DEFAULT_PORT="53"
+CURRENT_PORT="53"
 
 # 颜色定义
 GREEN="\033[32m"
@@ -39,11 +44,12 @@ display_menu() {
     echo -e "${CYAN}║${NC} ${YELLOW}1.${NC} 安装并配置DNS解锁服务器             ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} ${YELLOW}2.${NC} 管理白名单                       ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} ${YELLOW}3.${NC} 管理上游DNS                     ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} ${YELLOW}4.${NC} 查看当前配置                     ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} ${YELLOW}5.${NC} 还原原始配置                     ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}4.${NC} 管理端口配置                     ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}5.${NC} 查看当前配置                     ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}6.${NC} 还原原始配置                     ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} ${YELLOW}0.${NC} 退出脚本                       ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
-    echo -n -e "${GREEN}请选择操作 [0-5]: ${NC}"
+    echo -n -e "${GREEN}请选择操作 [0-6]: ${NC}"
 }
 
 # 显示白名单管理菜单
@@ -89,6 +95,29 @@ display_upstream_dns_menu() {
     echo -n -e "${GREEN}请选择操作 [0-2]: ${NC}"
 }
 
+# 显示端口管理菜单
+display_port_menu() {
+    clear
+    echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}             ${GREEN}端口管理${NC}             ${CYAN}║${NC}"
+    echo -e "${CYAN}╠════════════════════════════════════════════╣${NC}"
+    
+    # 显示当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    echo -e "${CYAN}║${NC} ${YELLOW}当前端口:${NC} ${GREEN}$CURRENT_PORT${NC}                    ${CYAN}║${NC}"
+    echo -e "${CYAN}╠════════════════════════════════════════════╣${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}1.${NC} 更改DNS端口                   ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}2.${NC} 恢复默认端口                   ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}0.${NC} 返回主菜单                    ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+    echo -n -e "${GREEN}请选择操作 [0-2]: ${NC}"
+}
+
 # 安装并配置DNS解锁服务器
 install_configure() {
     echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
@@ -118,7 +147,7 @@ install_configure() {
     cat > "$DNSMASQ_CONF" << EOF
 # 基本配置
 listen-address=0.0.0.0
-port=53
+port=$CURRENT_PORT
 bind-interfaces
 
 # 基本选项
@@ -286,26 +315,26 @@ EOF
     # 检查是否安装了ufw
     if command -v ufw &> /dev/null; then
         echo -e "${GREEN}使用ufw配置防火墙...${NC}"
-        ufw allow 53/tcp
-        ufw allow 53/udp
+        ufw allow $CURRENT_PORT/tcp
+        ufw allow $CURRENT_PORT/udp
     # 检查是否安装了firewalld
     elif command -v firewall-cmd &> /dev/null; then
         echo -e "${GREEN}使用firewalld配置防火墙...${NC}"
-        firewall-cmd --permanent --add-port=53/tcp
-        firewall-cmd --permanent --add-port=53/udp
+        firewall-cmd --permanent --add-port=$CURRENT_PORT/tcp
+        firewall-cmd --permanent --add-port=$CURRENT_PORT/udp
         firewall-cmd --reload
     # 检查是否安装了iptables
     elif command -v iptables &> /dev/null; then
         echo -e "${GREEN}使用iptables配置防火墙...${NC}"
-        iptables -A INPUT -p tcp --dport 53 -j ACCEPT
-        iptables -A INPUT -p udp --dport 53 -j ACCEPT
+        iptables -A INPUT -p tcp --dport $CURRENT_PORT -j ACCEPT
+        iptables -A INPUT -p udp --dport $CURRENT_PORT -j ACCEPT
         # 保存iptables规则（不同系统保存方式不同）
         if command -v iptables-save &> /dev/null; then
             iptables-save > /etc/iptables/rules.v4 2>/dev/null || iptables-save > /etc/sysconfig/iptables 2>/dev/null
         fi
     else
         echo -e "${YELLOW}未检测到可用的防火墙工具（ufw/firewalld/iptables）${NC}"
-        echo -e "${YELLOW}请手动开放53端口以允许DNS服务访问${NC}"
+        echo -e "${YELLOW}请手动开放$CURRENT_PORT端口以允许DNS服务访问${NC}"
     fi
 
     # 重启DNSmasq服务
@@ -320,32 +349,40 @@ systemctl enable dnsmasq
     # 获取IPv4地址
     local ipv4_address=$(curl -s -4 ifconfig.me 2>/dev/null || curl -s ifconfig.me)
     
+    # 获取当前端口配置
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
     # 显示配置信息
     echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${NC}         ${GREEN}DNS解锁服务器配置完成！${NC}         ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${YELLOW}DNS服务器IPv4: $ipv4_address${NC}"
-    echo -e "${YELLOW}DNS端口: 53${NC}"
+    echo -e "${YELLOW}DNS端口: $CURRENT_PORT${NC}"
     echo -e "${YELLOW}白名单配置文件: $WHITELIST_FILE${NC}"
     echo ""
     echo -e "${GREEN}请在中转机的分流配置中使用以下DNS服务器:${NC}"
-    echo -e "${YELLOW}$ipv4_address${NC}"
+    echo -e "${YELLOW}$ipv4_address:$CURRENT_PORT${NC}"
     echo ""
     echo -e "${GREEN}配置示例（适用于大多数分流工具）:${NC}"
     echo -e "${YELLOW}- 类型: DNS${NC}"
     echo -e "${YELLOW}- 服务器地址: $ipv4_address${NC}"
-    echo -e "${YELLOW}- 端口: 53${NC}"
+    echo -e "${YELLOW}- 端口: $CURRENT_PORT${NC}"
     echo -e "${YELLOW}- 适用范围: AI服务和流媒体域名${NC}"
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${NC}              ${YELLOW}注意事项${NC}              ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
-    echo -e "${YELLOW}1. 确保落地机的防火墙已开放53端口${NC}"
-    echo -e "${YELLOW}2. 确保中转机可以访问落地机的53端口${NC}"
+    echo -e "${YELLOW}1. 确保落地机的防火墙已开放$CURRENT_PORT端口${NC}"
+    echo -e "${YELLOW}2. 确保中转机可以访问落地机的$CURRENT_PORT端口${NC}"
     echo -e "${YELLOW}3. 如需添加更多服务，请编辑 $DNSMASQ_CONF 文件${NC}"
     echo -e "${YELLOW}4. 如需限制访问，请使用白名单管理功能${NC}"
     echo -e "${YELLOW}5. 如需配置上游DNS，请使用上游DNS管理功能${NC}"
+    echo -e "${YELLOW}6. 如需更改端口，请使用端口管理功能${NC}"
     echo ""
 
     echo -n -e "${GREEN}按Enter键返回主菜单...${NC}"
@@ -577,6 +614,173 @@ restore_upstream_dns() {
     sleep 2
 }
 
+# 管理端口配置
+manage_port_config() {
+    while true; do
+        display_port_menu
+        read -r choice
+        case $choice in
+            1) change_port ;;
+            2) restore_default_port ;;
+            0) break ;;
+            *) echo -e "${RED}无效选择，请重新输入${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# 更改DNS端口
+change_port() {
+    echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}           ${GREEN}更改DNS端口${NC}           ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    echo -e "${YELLOW}当前DNS端口: $CURRENT_PORT${NC}"
+    echo -e "${YELLOW}请输入新的DNS端口（例如：5353）:${NC}"
+    read -r new_port
+    
+    # 验证端口格式
+    if [[ ! $new_port =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
+        echo -e "${RED}无效的端口号，请输入1-65535之间的数字${NC}"
+        sleep 2
+        return
+    fi
+    
+    # 停止服务
+    systemctl stop dnsmasq
+    
+    # 更新配置文件中的端口
+    sed -i "s/^port=.*/port=$new_port/" "$DNSMASQ_CONF"
+    
+    # 创建端口备份文件
+    echo "port=$new_port" > "$PORT_BACKUP_FILE"
+    
+    # 更新防火墙规则
+    echo -e "${YELLOW}正在更新防火墙规则...${NC}"
+    
+    # 移除旧端口规则
+    if command -v ufw &> /dev/null; then
+        ufw delete allow $CURRENT_PORT/tcp 2>/dev/null
+        ufw delete allow $CURRENT_PORT/udp 2>/dev/null
+        # 添加新端口规则
+        ufw allow $new_port/tcp
+        ufw allow $new_port/udp
+    elif command -v firewall-cmd &> /dev/null; then
+        firewall-cmd --permanent --remove-port=$CURRENT_PORT/tcp 2>/dev/null
+        firewall-cmd --permanent --remove-port=$CURRENT_PORT/udp 2>/dev/null
+        # 添加新端口规则
+        firewall-cmd --permanent --add-port=$new_port/tcp
+        firewall-cmd --permanent --add-port=$new_port/udp
+        firewall-cmd --reload
+    elif command -v iptables &> /dev/null; then
+        iptables -D INPUT -p tcp --dport $CURRENT_PORT -j ACCEPT 2>/dev/null
+        iptables -D INPUT -p udp --dport $CURRENT_PORT -j ACCEPT 2>/dev/null
+        # 添加新端口规则
+        iptables -A INPUT -p tcp --dport $new_port -j ACCEPT
+        iptables -A INPUT -p udp --dport $new_port -j ACCEPT
+        # 保存规则
+        if command -v iptables-save &> /dev/null; then
+            iptables-save > /etc/iptables/rules.v4 2>/dev/null || iptables-save > /etc/sysconfig/iptables 2>/dev/null
+        fi
+    fi
+    
+    # 重启服务
+    echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
+    systemctl restart dnsmasq
+    
+    # 更新当前端口变量
+    CURRENT_PORT=$new_port
+    
+    echo -e "${GREEN}DNS端口已成功更改为: $new_port${NC}"
+    echo -e "${YELLOW}请在中转机的分流配置中使用新端口${NC}"
+    sleep 2
+}
+
+# 恢复默认端口
+restore_default_port() {
+    echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}           ${GREEN}恢复默认端口${NC}           ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    if [ "$CURRENT_PORT" == "53" ]; then
+        echo -e "${YELLOW}当前已经是默认端口53${NC}"
+        sleep 2
+        return
+    fi
+    
+    echo -e "${YELLOW}当前端口: $CURRENT_PORT${NC}"
+    echo -e "${YELLOW}默认端口: 53${NC}"
+    echo -n -e "${GREEN}确定要恢复默认端口吗？(y/N): ${NC}"
+    read confirm
+    
+    if [[ $confirm == [Yy]* ]]; then
+        # 停止服务
+        systemctl stop dnsmasq
+        
+        # 更新配置文件中的端口
+        sed -i "s/^port=.*/port=53/" "$DNSMASQ_CONF"
+        
+        # 删除端口备份文件
+        rm -f "$PORT_BACKUP_FILE"
+        
+        # 更新防火墙规则
+        echo -e "${YELLOW}正在更新防火墙规则...${NC}"
+        
+        # 移除旧端口规则
+        if command -v ufw &> /dev/null; then
+            ufw delete allow $CURRENT_PORT/tcp 2>/dev/null
+            ufw delete allow $CURRENT_PORT/udp 2>/dev/null
+            # 添加默认端口规则
+            ufw allow 53/tcp
+            ufw allow 53/udp
+        elif command -v firewall-cmd &> /dev/null; then
+            firewall-cmd --permanent --remove-port=$CURRENT_PORT/tcp 2>/dev/null
+            firewall-cmd --permanent --remove-port=$CURRENT_PORT/udp 2>/dev/null
+            # 添加默认端口规则
+            firewall-cmd --permanent --add-port=53/tcp
+            firewall-cmd --permanent --add-port=53/udp
+            firewall-cmd --reload
+        elif command -v iptables &> /dev/null; then
+            iptables -D INPUT -p tcp --dport $CURRENT_PORT -j ACCEPT 2>/dev/null
+            iptables -D INPUT -p udp --dport $CURRENT_PORT -j ACCEPT 2>/dev/null
+            # 添加默认端口规则
+            iptables -A INPUT -p tcp --dport 53 -j ACCEPT
+            iptables -A INPUT -p udp --dport 53 -j ACCEPT
+            # 保存规则
+            if command -v iptables-save &> /dev/null; then
+                iptables-save > /etc/iptables/rules.v4 2>/dev/null || iptables-save > /etc/sysconfig/iptables 2>/dev/null
+            fi
+        fi
+        
+        # 重启服务
+        echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
+        systemctl restart dnsmasq
+        
+        # 更新当前端口变量
+        CURRENT_PORT="53"
+        
+        echo -e "${GREEN}DNS端口已成功恢复为默认端口: 53${NC}"
+    else
+        echo -e "${YELLOW}操作已取消${NC}"
+    fi
+    sleep 2
+}
+
 # 查看当前配置
 view_config() {
     echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
@@ -587,8 +791,15 @@ view_config() {
     # 获取IPv4地址
     local ipv4_address=$(curl -s -4 ifconfig.me 2>/dev/null || curl -s ifconfig.me)
     
+    # 获取当前端口配置
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
     echo -e "${YELLOW}DNS服务器IPv4: $ipv4_address${NC}"
-    echo -e "${YELLOW}DNS端口: 53${NC}"
+    echo -e "${YELLOW}DNS端口: $CURRENT_PORT${NC}"
     echo -e "${YELLOW}DNSmasq配置文件: $DNSMASQ_CONF${NC}"
     echo -e "${YELLOW}白名单配置文件: $WHITELIST_FILE${NC}"
     echo ""
@@ -622,6 +833,9 @@ restore_config() {
             # 删除DNS备份
             rm -f "${DNSMASQ_CONF}.dns.bak"
 
+            # 删除端口配置
+            rm -f "$PORT_BACKUP_FILE"
+
             # 卸载DNSmasq
             echo -e "${YELLOW}正在卸载DNSmasq...${NC}"
             apt remove -y dnsmasq
@@ -649,8 +863,9 @@ main() {
             1) install_configure ;;
             2) manage_whitelist ;;
             3) manage_upstream_dns ;;
-            4) view_config ;;
-            5) restore_config ;;
+            4) manage_port_config ;;
+            5) view_config ;;
+            6) restore_config ;;
             0) echo -e "${GREEN}感谢使用DNS解锁服务器管理工具，再见！${NC}"; exit 0 ;;
             *) echo -e "${RED}无效选择，请重新输入${NC}"; sleep 1 ;;
         esac
