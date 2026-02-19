@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.9"
+VERSION="1.6.0"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -28,26 +28,27 @@ NC="\033[0m" # No Color
 # 检查端口是否被占用
 check_port_usage() {
     local port=$1
+    local occupied_process=""
     if command -v lsof &> /dev/null; then
-        local占用进程=$(lsof -i:$port 2>/dev/null | grep LISTEN | awk '{print $2, $1}')
+        occupied_process=$(lsof -i:$port 2>/dev/null | grep LISTEN | awk '{print $2, $1}')
     elif command -v netstat &> /dev/null; then
-        local占用进程=$(netstat -tulpn 2>/dev/null | grep :$port | grep LISTEN | awk '{print $7}')
+        occupied_process=$(netstat -tulpn 2>/dev/null | grep :$port | grep LISTEN | awk '{print $7}')
     elif command -v ss &> /dev/null; then
-        local占用进程=$(ss -tulpn 2>/dev/null | grep :$port | grep LISTEN | awk '{print $7}')
+        occupied_process=$(ss -tulpn 2>/dev/null | grep :$port | grep LISTEN | awk '{print $7}')
     else
-        local占用进程=""
+        occupied_process=""
     fi
-    echo "$占用进程"
+    echo "$occupied_process"
 }
 
 # 处理端口冲突
 handle_port_conflict() {
     local port=$1
-    local占用进程=$(check_port_usage $port)
+    local occupied_process=$(check_port_usage $port)
     
-    if [ -n "$占用进程" ]; then
+    if [ -n "$occupied_process" ]; then
         echo -e "${RED}错误：端口 $port 已被占用${NC}"
-        echo -e "${YELLOW}占用进程：$占用进程${NC}"
+        echo -e "${YELLOW}占用进程：$occupied_process${NC}"
         echo -e "${GREEN}正在尝试停止占用端口的进程...${NC}"
         
         # 尝试停止可能的DNS服务
@@ -59,8 +60,8 @@ handle_port_conflict() {
         sleep 2
         
         # 再次检查端口
-        local占用进程=$(check_port_usage $port)
-        if [ -n "$占用进程" ]; then
+        local occupied_process=$(check_port_usage $port)
+        if [ -n "$occupied_process" ]; then
             echo -e "${RED}警告：端口 $port 仍然被占用${NC}"
             echo -e "${YELLOW}请手动停止占用端口的进程后再试${NC}"
             return 1
