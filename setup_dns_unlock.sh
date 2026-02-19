@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.8"
+VERSION="1.5.9"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -1118,7 +1118,7 @@ main() {
             5) manage_edns_config ;;
             6) view_config ;;
             7) restore_config ;;
-            0) echo -e "${GREEN}感谢使用DNS解锁服务器管理工具，再见！${NC}"; exit 0 ;;;
+            0) echo -e "${GREEN}感谢使用DNS解锁服务器管理工具，再见！${NC}"; exit 0 ;;
             *) echo -e "${RED}无效选择，请重新输入${NC}"; sleep 1 ;;
         esac
     done
