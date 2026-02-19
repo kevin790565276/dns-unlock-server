@@ -428,7 +428,7 @@ EOF
     
     # 重启服务
     systemctl restart dnsmasq
-systemctl enable dnsmasq
+    systemctl enable dnsmasq
 
     # 检查服务状态
     echo -e "${YELLOW}正在检查DNSmasq服务状态...${NC}"
