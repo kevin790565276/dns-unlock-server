@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.6"
+VERSION="1.5.7"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -24,6 +24,53 @@ BLUE="\033[34m"
 PURPLE="\033[35m"
 CYAN="\033[36m"
 NC="\033[0m" # No Color
+
+# 检查端口是否被占用
+check_port_usage() {
+    local port=$1
+    if command -v lsof &> /dev/null; then
+        local占用进程=$(lsof -i:$port 2>/dev/null | grep LISTEN | awk '{print $2, $1}')
+    elif command -v netstat &> /dev/null; then
+        local占用进程=$(netstat -tulpn 2>/dev/null | grep :$port | grep LISTEN | awk '{print $7}')
+    elif command -v ss &> /dev/null; then
+        local占用进程=$(ss -tulpn 2>/dev/null | grep :$port | grep LISTEN | awk '{print $7}')
+    else
+        local占用进程=""
+    fi
+    echo "$占用进程"
+}
+
+# 处理端口冲突
+handle_port_conflict() {
+    local port=$1
+    local占用进程=$(check_port_usage $port)
+    
+    if [ -n "$占用进程" ]; then
+        echo -e "${RED}错误：端口 $port 已被占用${NC}"
+        echo -e "${YELLOW}占用进程：$占用进程${NC}"
+        echo -e "${GREEN}正在尝试停止占用端口的进程...${NC}"
+        
+        # 尝试停止可能的DNS服务
+        systemctl stop systemd-resolved 2>/dev/null
+        systemctl stop bind9 2>/dev/null
+        systemctl stop named 2>/dev/null
+        
+        # 等待进程释放端口
+        sleep 2
+        
+        # 再次检查端口
+        local占用进程=$(check_port_usage $port)
+        if [ -n "$占用进程" ]; then
+            echo -e "${RED}警告：端口 $port 仍然被占用${NC}"
+            echo -e "${YELLOW}请手动停止占用端口的进程后再试${NC}"
+            return 1
+        else
+            echo -e "${GREEN}端口 $port 已成功释放${NC}"
+            return 0
+        fi
+    fi
+    return 0
+}
 
 # 检查是否以root权限运行
 check_root() {
@@ -339,6 +386,18 @@ EOF
 
     # 重启DNSmasq服务
     echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
+    
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    # 处理端口冲突
+    handle_port_conflict $CURRENT_PORT
+    
+    # 重启服务
     systemctl restart dnsmasq
 systemctl enable dnsmasq
 
@@ -431,6 +490,16 @@ add_to_whitelist() {
     # 添加到白名单
     echo "allow-address=$ip" >> "$WHITELIST_FILE"
 
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    # 处理端口冲突
+    handle_port_conflict $CURRENT_PORT
+    
     # 重启服务
     systemctl restart dnsmasq
 
@@ -457,6 +526,16 @@ remove_from_whitelist() {
     # 从白名单移除
     sed -i "/allow-address=$ip/d" "$WHITELIST_FILE"
 
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    # 处理端口冲突
+    handle_port_conflict $CURRENT_PORT
+    
     # 重启服务
     systemctl restart dnsmasq
 
@@ -502,6 +581,16 @@ clear_whitelist() {
 # allow-address=0.0.0.0/0
 EOF
 
+        # 获取当前端口
+        if [ -f "$PORT_BACKUP_FILE" ]; then
+            CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+        else
+            CURRENT_PORT="53"
+        fi
+        
+        # 处理端口冲突
+        handle_port_conflict $CURRENT_PORT
+        
         # 重启服务
         systemctl restart dnsmasq
 
@@ -573,8 +662,17 @@ change_upstream_dns() {
     echo "server=$primary_dns" >> "$DNSMASQ_CONF"
     echo "server=$secondary_dns" >> "$DNSMASQ_CONF"
     
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    # 处理端口冲突
+    handle_port_conflict $CURRENT_PORT
+    
     # 重启服务
-    echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
     systemctl restart dnsmasq
     
     echo -e "${GREEN}上游DNS已成功更改为:${NC}"
@@ -597,8 +695,17 @@ restore_upstream_dns() {
         # 从备份中恢复server配置
         grep "^server=" "${DNSMASQ_CONF}.dns.bak" | grep -v "\.domain\.com" >> "$DNSMASQ_CONF"
         
+        # 获取当前端口
+        if [ -f "$PORT_BACKUP_FILE" ]; then
+            CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+        else
+            CURRENT_PORT="53"
+        fi
+        
+        # 处理端口冲突
+        handle_port_conflict $CURRENT_PORT
+        
         # 重启服务
-        echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
         systemctl restart dnsmasq
         
         echo -e "${GREEN}上游DNS已成功恢复${NC}"
@@ -691,6 +798,9 @@ change_port() {
         fi
     fi
     
+    # 处理端口冲突
+    handle_port_conflict $new_port
+    
     # 重启服务
     echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
     systemctl restart dnsmasq
@@ -766,6 +876,9 @@ restore_default_port() {
                 iptables-save > /etc/iptables/rules.v4 2>/dev/null || iptables-save > /etc/sysconfig/iptables 2>/dev/null
             fi
         fi
+        
+        # 处理端口冲突
+        handle_port_conflict 53
         
         # 重启服务
         echo -e "${YELLOW}正在重启DNSmasq服务...${NC}"
