@@ -4,7 +4,7 @@
 # 适用于将落地机配置为DNS服务器，用于解锁AI服务和流媒体服务
 
 # 版本号
-VERSION="1.5.7"
+VERSION="1.5.8"
 
 # 配置文件路径
 DNSMASQ_CONF="/etc/dnsmasq.conf"
@@ -92,11 +92,12 @@ display_menu() {
     echo -e "${CYAN}║${NC} ${YELLOW}2.${NC} 管理白名单                       ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} ${YELLOW}3.${NC} 管理上游DNS                     ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} ${YELLOW}4.${NC} 管理端口配置                     ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} ${YELLOW}5.${NC} 查看当前配置                     ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC} ${YELLOW}6.${NC} 还原原始配置                     ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}5.${NC} 配置EDNS0设置                   ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}6.${NC} 查看当前配置                     ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}7.${NC} 还原原始配置                     ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC} ${YELLOW}0.${NC} 退出脚本                       ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
-    echo -n -e "${GREEN}请选择操作 [0-6]: ${NC}"
+    echo -n -e "${GREEN}请选择操作 [0-7]: ${NC}"
 }
 
 # 显示白名单管理菜单
@@ -163,6 +164,33 @@ display_port_menu() {
     echo -e "${CYAN}║${NC} ${YELLOW}0.${NC} 返回主菜单                    ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
     echo -n -e "${GREEN}请选择操作 [0-2]: ${NC}"
+}
+
+# 显示EDNS0设置菜单
+display_edns_menu() {
+    clear
+    echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}             ${GREEN}EDNS0设置${NC}             ${CYAN}║${NC}"
+    echo -e "${CYAN}╠════════════════════════════════════════════╣${NC}"
+    
+    # 显示当前EDNS0设置
+    echo -e "${CYAN}║${NC} ${YELLOW}当前EDNS0设置:${NC}                     ${CYAN}║${NC}"
+    if grep -q "edns-packet-max=" "$DNSMASQ_CONF"; then
+        local edns_setting=$(grep "edns-packet-max=" "$DNSMASQ_CONF" | awk -F'=' '{print $2}')
+        echo -e "${CYAN}║${NC}   ${GREEN}EDNS数据包大小: $edns_setting${NC}      ${CYAN}║${NC}"
+    elif grep -q "no-edns" "$DNSMASQ_CONF"; then
+        echo -e "${CYAN}║${NC}   ${GREEN}EDNS已禁用${NC}                    ${CYAN}║${NC}"
+    else
+        echo -e "${CYAN}║${NC}   ${GREEN}使用默认EDNS设置${NC}               ${CYAN}║${NC}"
+    fi
+    
+    echo -e "${CYAN}╠════════════════════════════════════════════╣${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}1.${NC} 禁用EDNS0客户端子网信息        ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}2.${NC} 完全禁用EDNS                 ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}3.${NC} 恢复默认EDNS设置              ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC} ${YELLOW}0.${NC} 返回主菜单                    ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+    echo -n -e "${GREEN}请选择操作 [0-3]: ${NC}"
 }
 
 # 安装并配置DNS解锁服务器
@@ -442,6 +470,7 @@ systemctl enable dnsmasq
     echo -e "${YELLOW}4. 如需限制访问，请使用白名单管理功能${NC}"
     echo -e "${YELLOW}5. 如需配置上游DNS，请使用上游DNS管理功能${NC}"
     echo -e "${YELLOW}6. 如需更改端口，请使用端口管理功能${NC}"
+    echo -e "${YELLOW}7. 如需解决上游DNS白名单问题，请使用EDNS0设置功能${NC}"
     echo ""
 
     echo -n -e "${GREEN}按Enter键返回主菜单...${NC}"
@@ -894,6 +923,115 @@ restore_default_port() {
     sleep 2
 }
 
+# 管理EDNS0设置
+manage_edns_config() {
+    while true; do
+        display_edns_menu
+        read -r choice
+        case $choice in
+            1) disable_edns_client_subnet ;;
+            2) disable_edns_completely ;;
+            3) restore_default_edns ;;
+            0) break ;;
+            *) echo -e "${RED}无效选择，请重新输入${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# 禁用EDNS0客户端子网信息
+disable_edns_client_subnet() {
+    echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}     ${GREEN}禁用EDNS0客户端子网信息${NC}     ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # 移除现有的EDNS配置
+    sed -i '/^edns-packet-max=/d' "$DNSMASQ_CONF"
+    sed -i '/^no-edns/d' "$DNSMASQ_CONF"
+    
+    # 添加新的EDNS配置
+    echo "# 禁用EDNS0客户端子网信息"
+    echo "edns-packet-max=1232" >> "$DNSMASQ_CONF"
+    
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    # 处理端口冲突
+    handle_port_conflict $CURRENT_PORT
+    
+    # 重启服务
+    systemctl restart dnsmasq
+    
+    echo -e "${GREEN}已成功禁用EDNS0客户端子网信息${NC}"
+    echo -e "${YELLOW}这将有助于解决上游DNS白名单限制的问题${NC}"
+    sleep 2
+}
+
+# 完全禁用EDNS
+disable_edns_completely() {
+    echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}        ${GREEN}完全禁用EDNS${NC}        ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # 移除现有的EDNS配置
+    sed -i '/^edns-packet-max=/d' "$DNSMASQ_CONF"
+    sed -i '/^no-edns/d' "$DNSMASQ_CONF"
+    
+    # 添加新的EDNS配置
+    echo "# 完全禁用EDNS"
+    echo "no-edns" >> "$DNSMASQ_CONF"
+    
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    # 处理端口冲突
+    handle_port_conflict $CURRENT_PORT
+    
+    # 重启服务
+    systemctl restart dnsmasq
+    
+    echo -e "${GREEN}已成功完全禁用EDNS${NC}"
+    echo -e "${YELLOW}这将有助于解决上游DNS白名单限制的问题，但可能影响某些DNS功能${NC}"
+    sleep 2
+}
+
+# 恢复默认EDNS设置
+restore_default_edns() {
+    echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}      ${GREEN}恢复默认EDNS设置${NC}      ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # 移除现有的EDNS配置
+    sed -i '/^edns-packet-max=/d' "$DNSMASQ_CONF"
+    sed -i '/^no-edns/d' "$DNSMASQ_CONF"
+    
+    # 获取当前端口
+    if [ -f "$PORT_BACKUP_FILE" ]; then
+        CURRENT_PORT=$(cat "$PORT_BACKUP_FILE" | grep "port=" | awk -F'=' '{print $2}')
+    else
+        CURRENT_PORT="53"
+    fi
+    
+    # 处理端口冲突
+    handle_port_conflict $CURRENT_PORT
+    
+    # 重启服务
+    systemctl restart dnsmasq
+    
+    echo -e "${GREEN}已成功恢复默认EDNS设置${NC}"
+    sleep 2
+}
+
 # 查看当前配置
 view_config() {
     echo -e "${CYAN}╔════════════════════════════════════════════╗${NC}"
@@ -977,9 +1115,10 @@ main() {
             2) manage_whitelist ;;
             3) manage_upstream_dns ;;
             4) manage_port_config ;;
-            5) view_config ;;
-            6) restore_config ;;
-            0) echo -e "${GREEN}感谢使用DNS解锁服务器管理工具，再见！${NC}"; exit 0 ;;
+            5) manage_edns_config ;;
+            6) view_config ;;
+            7) restore_config ;;
+            0) echo -e "${GREEN}感谢使用DNS解锁服务器管理工具，再见！${NC}"; exit 0 ;;;
             *) echo -e "${RED}无效选择，请重新输入${NC}"; sleep 1 ;;
         esac
     done
